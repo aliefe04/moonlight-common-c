@@ -73,6 +73,8 @@ typedef struct _PACKET_HOLDER {
         SS_CONTROLLER_MOTION_PACKET controllerMotion;
         SS_CONTROLLER_BATTERY_PACKET controllerBattery;
         NV_UNICODE_PACKET unicode;
+        SS_MIC_START_PACKET micStart;
+        SS_MIC_STOP_PACKET micStop;
     } packet;
 } PACKET_HOLDER, *PPACKET_HOLDER;
 
@@ -1616,6 +1618,143 @@ int LiSendControllerBatteryEvent(uint8_t controllerNumber, uint8_t batteryState,
     holder->packet.controllerBattery.batteryState = batteryState;
     holder->packet.controllerBattery.batteryPercentage = batteryPercentage;
     memset(holder->packet.controllerBattery.zero, 0, sizeof(holder->packet.controllerBattery.zero));
+
+    err = LbqOfferQueueItem(&packetQueue, holder, &holder->entry);
+    if (err != LBQ_SUCCESS) {
+        LC_ASSERT(err == LBQ_BOUND_EXCEEDED);
+        Limelog("Input queue reached maximum size limit\n");
+        freePacketHolder(holder);
+    }
+
+    return err;
+}
+
+// Microphone passthrough functions (Sunshine extension)
+
+bool LiIsMicPassthroughSupported(void) {
+    return MicPassthroughSupported;
+}
+
+int LiSendMicStartEvent(uint8_t audioInputId, uint8_t codec, uint8_t channels, uint32_t sampleRate, uint32_t bitrate) {
+    PPACKET_HOLDER holder;
+    int err;
+
+    if (!initialized) {
+        return -2;
+    }
+
+    // This is a protocol extension only supported with Sunshine
+    if (!IS_SUNSHINE()) {
+        return LI_ERR_UNSUPPORTED;
+    }
+
+    if (!MicPassthroughSupported) {
+        return LI_ERR_UNSUPPORTED;
+    }
+
+    holder = allocatePacketHolder(0);
+    if (holder == NULL) {
+        return -1;
+    }
+
+    holder->channelId = CTRL_CHANNEL_GENERIC;
+    holder->enetPacketFlags = ENET_PACKET_FLAG_RELIABLE;
+
+    holder->packet.micStart.header.size = BE32(sizeof(SS_MIC_START_PACKET) - sizeof(uint32_t));
+    holder->packet.micStart.header.magic = LE32(SS_MIC_START_MAGIC);
+    holder->packet.micStart.audioInputId = audioInputId;
+    holder->packet.micStart.codec = codec;
+    holder->packet.micStart.channels = channels;
+    holder->packet.micStart.reserved = 0;
+    holder->packet.micStart.sampleRate = LE32(sampleRate);
+    holder->packet.micStart.bitrate = LE32(bitrate);
+
+    err = LbqOfferQueueItem(&packetQueue, holder, &holder->entry);
+    if (err != LBQ_SUCCESS) {
+        LC_ASSERT(err == LBQ_BOUND_EXCEEDED);
+        Limelog("Input queue reached maximum size limit\n");
+        freePacketHolder(holder);
+    }
+
+    return err;
+}
+
+int LiSendMicStopEvent(uint8_t audioInputId) {
+    PPACKET_HOLDER holder;
+    int err;
+
+    if (!initialized) {
+        return -2;
+    }
+
+    // This is a protocol extension only supported with Sunshine
+    if (!IS_SUNSHINE()) {
+        return LI_ERR_UNSUPPORTED;
+    }
+
+    if (!MicPassthroughSupported) {
+        return LI_ERR_UNSUPPORTED;
+    }
+
+    holder = allocatePacketHolder(0);
+    if (holder == NULL) {
+        return -1;
+    }
+
+    holder->channelId = CTRL_CHANNEL_GENERIC;
+    holder->enetPacketFlags = ENET_PACKET_FLAG_RELIABLE;
+
+    holder->packet.micStop.header.size = BE32(sizeof(SS_MIC_STOP_PACKET) - sizeof(uint32_t));
+    holder->packet.micStop.header.magic = LE32(SS_MIC_STOP_MAGIC);
+    holder->packet.micStop.audioInputId = audioInputId;
+    memset(holder->packet.micStop.reserved, 0, sizeof(holder->packet.micStop.reserved));
+
+    err = LbqOfferQueueItem(&packetQueue, holder, &holder->entry);
+    if (err != LBQ_SUCCESS) {
+        LC_ASSERT(err == LBQ_BOUND_EXCEEDED);
+        Limelog("Input queue reached maximum size limit\n");
+        freePacketHolder(holder);
+    }
+
+    return err;
+}
+
+int LiSendMicDataEvent(uint8_t audioInputId, uint16_t frameIndex, const char* data, int length) {
+    PPACKET_HOLDER holder;
+    int err;
+
+    if (!initialized) {
+        return -2;
+    }
+
+    // This is a protocol extension only supported with Sunshine
+    if (!IS_SUNSHINE()) {
+        return LI_ERR_UNSUPPORTED;
+    }
+
+    if (!MicPassthroughSupported) {
+        return LI_ERR_UNSUPPORTED;
+    }
+
+    // Allocate packet holder with extra space for Opus data
+    holder = allocatePacketHolder(length);
+    if (holder == NULL) {
+        return -1;
+    }
+
+    holder->channelId = CTRL_CHANNEL_GENERIC;
+    holder->enetPacketFlags = 0; // Unreliable for audio data
+
+    // Build the mic data packet header
+    SS_MIC_DATA_PACKET* micData = (SS_MIC_DATA_PACKET*)&holder->packet;
+    micData->header.size = BE32(sizeof(SS_MIC_DATA_PACKET) - sizeof(uint32_t) + length);
+    micData->header.magic = LE32(SS_MIC_DATA_MAGIC);
+    micData->audioInputId = audioInputId;
+    micData->reserved = 0;
+    micData->frameIndex = LE16(frameIndex);
+
+    // Copy Opus data after the header
+    memcpy((char*)(micData + 1), data, length);
 
     err = LbqOfferQueueItem(&packetQueue, holder, &holder->entry);
     if (err != LBQ_SUCCESS) {
