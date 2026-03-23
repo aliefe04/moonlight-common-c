@@ -703,12 +703,21 @@ static bool sendMessageEnet(short ptype, short paylen, const void* payload, uint
     if (encryptedControlStream) {
         PNVCTL_ENCRYPTED_PACKET_HEADER encPacket;
         PNVCTL_ENET_PACKET_HEADER_V2 packet;
-        char tempBuffer[256];
+
+        // Use a stack buffer for small packets; heap-allocate for larger ones
+        // (e.g. variable-length mic data packets can exceed the default 256-byte limit)
+        char stackBuffer[256];
+        int tempBufferSize = (int)(sizeof(*packet) + paylen);
+        char* tempBuffer = (tempBufferSize <= (int)sizeof(stackBuffer)) ? stackBuffer : (char*)malloc(tempBufferSize);
+        if (tempBuffer == NULL) {
+            return false;
+        }
 
         enetPacket = enet_packet_create(NULL,
                                         sizeof(*encPacket) + AES_GCM_TAG_LENGTH + sizeof(*packet) + paylen,
                                         flags);
         if (enetPacket == NULL) {
+            if (tempBuffer != stackBuffer) free(tempBuffer);
             return false;
         }
 
@@ -722,7 +731,6 @@ static bool sendMessageEnet(short ptype, short paylen, const void* payload, uint
         encPacket->seq = currentEnetSequenceNumber++;
 
         // Construct the plaintext data for encryption
-        LC_ASSERT(sizeof(*packet) + paylen < sizeof(tempBuffer));
         packet = (PNVCTL_ENET_PACKET_HEADER_V2)tempBuffer;
         packet->type = ptype;
         packet->payloadLength = paylen;
@@ -733,8 +741,11 @@ static bool sendMessageEnet(short ptype, short paylen, const void* payload, uint
             Limelog("Failed to encrypt control stream message\n");
             enet_packet_destroy(enetPacket);
             PltUnlockMutex(&enetMutex);
+            if (tempBuffer != stackBuffer) free(tempBuffer);
             return false;
         }
+
+        if (tempBuffer != stackBuffer) free(tempBuffer);
 
         // enetMutex still locked here
     }
