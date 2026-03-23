@@ -309,6 +309,18 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
         else {
             err |= addAttributeString(&optionHead, "x-ss-video[0].chromaSamplingType", "0");
         }
+
+        // Send mic passthrough request if enabled and supported by host
+        if (StreamConfig.micPassthrough && MicPassthroughSupported) {
+            // Format: micInfo:codec,channels,sample_rate,bitrate
+            // Example: micInfo:micop,1,48000,64000
+            snprintf(payloadStr, sizeof(payloadStr), "micop,%d,%d,%d",
+                     StreamConfig.micChannels > 0 ? StreamConfig.micChannels : 1,
+                     StreamConfig.micSampleRate > 0 ? StreamConfig.micSampleRate : 48000,
+                     StreamConfig.micBitrate > 0 ? StreamConfig.micBitrate : 64000);
+            err |= addAttributeString(&optionHead, "x-ss-general.micInfo", payloadStr);
+            Limelog("Requesting mic passthrough: %s\n", payloadStr);
+        }
     }
 
     snprintf(payloadStr, sizeof(payloadStr), "%d", StreamConfig.width);

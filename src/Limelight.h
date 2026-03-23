@@ -100,6 +100,23 @@ typedef struct _STREAM_CONFIGURATION {
     // in /launch and /resume requests.
     char remoteInputAesKey[16];
     char remoteInputAesIv[16];
+
+    // Microphone passthrough configuration (Sunshine extension)
+    // Set to 1 to enable microphone passthrough from client to host
+    int micPassthrough;
+
+    // Microphone codec configuration
+    // 0 = Opus (default)
+    int micCodec;
+
+    // Number of microphone channels (1 = mono, 2 = stereo)
+    int micChannels;
+
+    // Microphone sample rate in Hz (e.g., 48000)
+    int micSampleRate;
+
+    // Microphone encoder bitrate in bps (e.g., 64000)
+    int micBitrate;
 } STREAM_CONFIGURATION, *PSTREAM_CONFIGURATION;
 
 // Use this function to zero the stream configuration when allocated on the stack or heap
@@ -1002,7 +1019,48 @@ void LiRequestIdrFrame(void);
 // This function returns any extended feature flags supported by the host.
 #define LI_FF_PEN_TOUCH_EVENTS        0x01 // LiSendTouchEvent()/LiSendPenEvent() supported
 #define LI_FF_CONTROLLER_TOUCH_EVENTS 0x02 // LiSendControllerTouchEvent() supported
+#define LI_FF_MIC_PASSTHROUGH         0x04 // Microphone passthrough supported
 uint32_t LiGetHostFeatureFlags(void);
+
+// ============================================================================
+// Microphone Passthrough API (Sunshine Protocol Extension)
+// ============================================================================
+
+// Mic codec types
+#define LI_MIC_CODEC_OPUS 0x00
+
+// Mic status codes returned by host
+#define LI_MIC_STATUS_OK       0x00
+#define LI_MIC_STATUS_ERROR    0x01
+#define LI_MIC_STATUS_BUSY     0x02
+#define LI_MIC_STATUS_DISABLED 0x03
+
+// This function sends a mic start packet to the host to begin a microphone stream.
+// The host will respond with a status indicating if the mic stream was successfully started.
+// Returns 0 on success, non-zero on failure.
+int LiSendMicStartEvent(uint8_t audioInputId, uint8_t codec, uint8_t channels, uint32_t sampleRate, uint32_t bitrate);
+
+// This function sends mic audio data to the host. The data should be Opus-encoded.
+// frameIndex should increment for each frame and wraps at 65535.
+// Returns 0 on success, non-zero on failure.
+int LiSendMicDataEvent(uint8_t audioInputId, uint16_t frameIndex, const char* data, int length);
+
+// This function sends a mic stop packet to the host to end a microphone stream.
+// Returns 0 on success, non-zero on failure.
+int LiSendMicStopEvent(uint8_t audioInputId);
+
+// This callback is invoked when the host sends a mic status update.
+typedef void(*MicListenerMicStatus)(uint8_t audioInputId, uint8_t status);
+
+typedef struct _MIC_LISTENER_CALLBACKS {
+    MicListenerMicStatus micStatus;
+} MIC_LISTENER_CALLBACKS, *PMIC_LISTENER_CALLBACKS;
+
+// Use this function to zero the mic callbacks when allocated on the stack or heap
+void LiInitializeMicCallbacks(PMIC_LISTENER_CALLBACKS mlCallbacks);
+
+// Returns true if the host supports microphone passthrough.
+bool LiIsMicPassthroughSupported(void);
 
 #ifdef __cplusplus
 }

@@ -1120,6 +1120,13 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
             SunshineFeatureFlags = 0;
         }
 
+        // Look for the mic passthrough support attribute (Sunshine extension)
+        // The attribute format is: a=x-ss-general.micSupport:micop
+        MicPassthroughSupported = (strstr(response.payload, "x-ss-general.micSupport") != NULL);
+        if (MicPassthroughSupported) {
+            Limelog("Microphone passthrough is supported by this host\n");
+        }
+
         // Look for the Sunshine encryption flags in the SDP attributes
         if (!parseSdpAttributeToUInt(response.payload, "x-ss-general.encryptionSupported", &EncryptionFeaturesSupported)) {
             EncryptionFeaturesSupported = 0;

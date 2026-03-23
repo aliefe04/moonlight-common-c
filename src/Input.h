@@ -195,4 +195,43 @@ typedef struct _SS_CONTROLLER_BATTERY_PACKET {
     uint8_t zero[1]; // Alignment/reserved
 } SS_CONTROLLER_BATTERY_PACKET, *PSS_CONTROLLER_BATTERY_PACKET;
 
+// Microphone passthrough protocol extensions (Sunshine)
+// These packet types are sent from client to host via the control stream
+
+// Mic data packet - contains Opus-encoded audio frames
+#define SS_MIC_DATA_MAGIC 0x55000008
+typedef struct _SS_MIC_DATA_PACKET {
+    NV_INPUT_HEADER header;
+    uint8_t audioInputId;      // Identifier for multi-device support (0-15)
+    uint8_t reserved;          // Reserved for future use
+    uint16_t frameIndex;       // Frame index for sequencing (wraps at 65535)
+    // Opus-encoded audio data follows (variable length)
+} SS_MIC_DATA_PACKET, *PSS_MIC_DATA_PACKET;
+
+// Mic start packet - sent when client starts mic capture
+#define SS_MIC_START_MAGIC 0x55000009
+typedef struct _SS_MIC_START_PACKET {
+    NV_INPUT_HEADER header;
+    uint8_t audioInputId;      // Identifier for this mic stream
+    uint8_t codec;             // Codec type: 0 = Opus
+    uint8_t channels;          // Number of audio channels (1 = mono, 2 = stereo)
+    uint8_t reserved;          // Reserved for future use
+    uint32_t sampleRate;       // Sample rate in Hz (e.g., 48000)
+    uint32_t bitrate;          // Encoder bitrate in bps (e.g., 64000)
+} SS_MIC_START_PACKET, *PSS_MIC_START_PACKET;
+
+// Mic stop packet - sent when client stops mic capture
+#define SS_MIC_STOP_MAGIC 0x5500000A
+typedef struct _SS_MIC_STOP_PACKET {
+    NV_INPUT_HEADER header;
+    uint8_t audioInputId;      // Identifier for the mic stream to stop
+    uint8_t reserved[3];       // Reserved for future use
+} SS_MIC_STOP_PACKET, *PSS_MIC_STOP_PACKET;
+
+// Mic status codes (returned in control messages from host to client)
+#define SS_MIC_STATUS_OK       0x00
+#define SS_MIC_STATUS_ERROR    0x01
+#define SS_MIC_STATUS_BUSY     0x02
+#define SS_MIC_STATUS_DISABLED 0x03
+
 #pragma pack(pop)

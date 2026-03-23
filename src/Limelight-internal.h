@@ -44,6 +44,9 @@ extern uint32_t ControlConnectData;
 
 extern uint32_t SunshineFeatureFlags;
 
+// Mic passthrough support flag (Sunshine extension)
+extern bool MicPassthroughSupported;
+
 // Encryption flags shared by Sunshine and Moonlight in RTSP
 #define SS_ENC_CONTROL_V2 0x01
 #define SS_ENC_VIDEO 0x02
