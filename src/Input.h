@@ -215,7 +215,7 @@ typedef struct _SS_MIC_START_PACKET {
     uint8_t audioInputId;      // Identifier for this mic stream
     uint8_t codec;             // Codec type: 0 = Opus
     uint8_t channels;          // Number of audio channels (1 = mono, 2 = stereo)
-    uint8_t reserved;          // Reserved for future use
+    uint8_t fecPercentage;     // FEC percentage (0 = no FEC, 1-100 = FEC enabled)
     uint32_t sampleRate;       // Sample rate in Hz (e.g., 48000)
     uint32_t bitrate;          // Encoder bitrate in bps (e.g., 64000)
 } SS_MIC_START_PACKET, *PSS_MIC_START_PACKET;

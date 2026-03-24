@@ -1635,7 +1635,7 @@ bool LiIsMicPassthroughSupported(void) {
     return MicPassthroughSupported;
 }
 
-int LiSendMicStartEvent(uint8_t audioInputId, uint8_t codec, uint8_t channels, uint32_t sampleRate, uint32_t bitrate) {
+int LiSendMicStartEvent(uint8_t audioInputId, uint8_t codec, uint8_t channels, uint8_t fecPercentage, uint32_t sampleRate, uint32_t bitrate) {
     PPACKET_HOLDER holder;
     int err;
 
@@ -1665,7 +1665,7 @@ int LiSendMicStartEvent(uint8_t audioInputId, uint8_t codec, uint8_t channels, u
     holder->packet.micStart.audioInputId = audioInputId;
     holder->packet.micStart.codec = codec;
     holder->packet.micStart.channels = channels;
-    holder->packet.micStart.reserved = 0;
+    holder->packet.micStart.fecPercentage = fecPercentage;
     holder->packet.micStart.sampleRate = LE32(sampleRate);
     holder->packet.micStart.bitrate = LE32(bitrate);
 

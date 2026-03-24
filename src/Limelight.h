@@ -1037,8 +1037,9 @@ uint32_t LiGetHostFeatureFlags(void);
 
 // This function sends a mic start packet to the host to begin a microphone stream.
 // The host will respond with a status indicating if the mic stream was successfully started.
+// fecPercentage: 0 = no FEC, 1-100 = FEC percentage for packet loss resilience.
 // Returns 0 on success, non-zero on failure.
-int LiSendMicStartEvent(uint8_t audioInputId, uint8_t codec, uint8_t channels, uint32_t sampleRate, uint32_t bitrate);
+int LiSendMicStartEvent(uint8_t audioInputId, uint8_t codec, uint8_t channels, uint8_t fecPercentage, uint32_t sampleRate, uint32_t bitrate);
 
 // This function sends mic audio data to the host. The data should be Opus-encoded.
 // frameIndex should increment for each frame and wraps at 65535.
